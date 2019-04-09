@@ -6,7 +6,7 @@ const { pExec } = require(`./utils`);
 const fs = require(`fs-extra`);
 const childProcess = require("child_process");
 
-const sites = require(`./sites.json`).slice(0, 10);
+const sites = require(`./sites.json`).slice(0, 3);
 
 const report = {};
 
@@ -26,7 +26,9 @@ const q = new Queue(
       console.log("error", e);
       report[task.repo] = {
         status: `ERROR`,
-        error: e
+        errorMessage: e.toString(),
+        error: e,
+        stack: e.stack
       };
       cb(e);
     }
@@ -58,26 +60,35 @@ const runSite = async repo => {
 
   const cloneCmd = `git clone --single-branch ${repo} ${repoCloneDir}`;
 
-  await pExec(cloneCmd, execArgs);
+  // try {
+  await pExec(cloneCmd, execArgs, `Cloning`);
+  // } catch (e) {
+  //   e.step = `Cloning`;
+  //   throw e;
+  // }
 
   execArgs.cwd = path.join(process.cwd(), `sites`, repoCloneDir);
 
   // check if it builds first
-  await pExec(`yarn`, execArgs);
+  await pExec(`yarn`, execArgs, `Installing base deps`);
 
-  await pExec(`yarn gatsby build`, execArgs);
+  await pExec(`yarn gatsby build`, execArgs, `Baseline build`);
 
-  await pExec(`git clean -xfd`, execArgs);
+  await pExec(`git clean -xfd`, execArgs, `Cleaning`);
 
   // if it builds
 
-  await pExec(`yarn add gatsby@v8-serialize`, execArgs);
+  await pExec(
+    `yarn add gatsby@v8-serialize`,
+    execArgs,
+    `Installing v8-serialize`
+  );
 
-  await pExec(`yarn gatsby build`, execArgs);
+  await pExec(`yarn gatsby build`, execArgs, `First v8.serialize build`);
 
   // check if it rebuilds
   // console.log(execArgs);
-  await pExec(`yarn gatsby build`, execArgs);
+  await pExec(`yarn gatsby build`, execArgs, `Second v8.serialize build`);
 
   // const proc = childProcess.spawn(`yarn`, [`gatsby`, `develop`, `-p`, `8100`], {
   //   cwd: execArgs.cwd

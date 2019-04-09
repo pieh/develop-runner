@@ -13,9 +13,10 @@ const sanitzeOutput = out => {
   );
 };
 
-exports.pExec = (command, execArgs = {}, aaa = command) =>
+exports.pExec = (command, execArgs = {}, step) =>
   new Promise((resolve, reject) => {
-    log(sanitzeOutput(`$ ${aaa}`));
+    log(sanitzeOutput(`$ ${command}`));
+
     childProcess.exec(command, execArgs, (err, stdout, stderr) => {
       if (stderr) {
         log(` - ERR START`);
@@ -27,6 +28,7 @@ exports.pExec = (command, execArgs = {}, aaa = command) =>
       if (err) {
         // err.stderr = sanitzeOutput(stderr);
         // err.stdout = sanitzeOutput(stdout);
+        e.step = step;
         reject(err);
       }
 
