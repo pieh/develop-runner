@@ -1,0 +1,12 @@
+{
+  "name": "develop-runner",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "async": "^2.6.2",
+    "better-queue": "^3.8.10",
+    "express": "^4.16.4",
+    "fs-extra": "^7.0.1"
+  }
+}
