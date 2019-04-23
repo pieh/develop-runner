@@ -6,21 +6,57 @@ const { pExec } = require(`./utils`);
 const fs = require(`fs-extra`);
 const childProcess = require("child_process");
 
-const sites = require(`./sites.json`).slice(0, 3);
+const sites = require(`./sites`);
 
 const report = {};
 
 exports.report = report;
 
+const getDirNameForRepo = repo => {
+  const repoCloneDir = Buffer.from(repo)
+    .toString(`base64`)
+    .replace(/=/g, `_`);
+
+  return repoCloneDir;
+};
+
+const getAbsPathForRepo = repo => {
+  const repoAbsPath = path.join(
+    process.cwd(),
+    `sites`,
+    getDirNameForRepo(repo)
+  );
+  return repoAbsPath;
+};
+
 const q = new Queue(
   async (task, cb) => {
     console.log({ task, cb });
+
+    const absPath = getAbsPathForRepo(task.repo);
+    const statusPath = path.join(path.join(absPath, `_status`));
+
+    if (await fs.exists(statusPath)) {
+      const status = await fs.readJSON(statusPath);
+      report[task.repo] = status;
+      cb(null);
+      return;
+    }
+
     try {
+      report[task.repo] = {
+        status: `STARTED`
+      };
       await runSite(task.repo);
       console.log("finished", task);
       report[task.repo] = {
         status: `OK`
       };
+
+      try {
+        await fs.outputFile(statusPath, JSON.stringify(report[task.repo]));
+      } catch (e) {}
+
       cb(null);
     } catch (e) {
       console.log("error", e);
@@ -30,11 +66,16 @@ const q = new Queue(
         error: e,
         stack: e.stack
       };
-      cb(e);
+      try {
+        await fs.outputFile(statusPath, JSON.stringify(report[task.repo]));
+      } catch (e) {}
+      cb(null);
     }
   },
   { concurrent: 1 }
 );
+
+exports.queue = q;
 
 q.on("drain", function() {
   log("all items have been processed");
@@ -54,57 +95,68 @@ const runSite = async repo => {
     cwd: path.join(process.cwd(), `sites`)
   };
 
-  const repoCloneDir = Buffer.from(repo)
-    .toString(`base64`)
-    .replace(/=/g, `_`);
+  const repoCloneDir = getDirNameForRepo(repo);
+  const repoAbsPath = getAbsPathForRepo(repo);
 
-  const cloneCmd = `git clone --single-branch ${repo} ${repoCloneDir}`;
+  const updateProcess = step => {
+    report[repo] = { status: step };
+    return step;
+  };
 
-  // try {
-  await pExec(cloneCmd, execArgs, `Cloning`);
-  // } catch (e) {
-  //   e.step = `Cloning`;
-  //   throw e;
-  // }
+  if (!fs.existsSync(repoAbsPath)) {
+    const cloneCmd = `git clone --depth=1 ${repo} ${repoCloneDir}`;
 
-  execArgs.cwd = path.join(process.cwd(), `sites`, repoCloneDir);
+    await pExec(cloneCmd, execArgs, updateProcess(`Cloning repo`));
+    execArgs.cwd = repoAbsPath;
+  } else {
+    execArgs.cwd = repoAbsPath;
 
-  // check if it builds first
-  await pExec(`yarn`, execArgs, `Installing base deps`);
+    await pExec(
+      `git reset --hard HEAD`,
+      execArgs,
+      updateProcess(`Resetting repo`)
+    );
+    await pExec(
+      `git clean -xfd`,
+      execArgs,
+      updateProcess(`Cleaning after reset (git clean -xfd)`)
+    );
+  }
 
-  await pExec(`yarn gatsby build`, execArgs, `Baseline build`);
+  await pExec(`yarn`, execArgs, updateProcess(`Installing base deps`));
 
-  await pExec(`git clean -xfd`, execArgs, `Cleaning`);
+  await pExec(`yarn gatsby build`, execArgs, updateProcess(`Baseline build`));
 
-  // if it builds
+  await pExec(
+    `git clean -xfd`,
+    execArgs,
+    updateProcess(`Cleaning after baseline (git clean -xfd)`)
+  );
+
+  await pExec(
+    `rm -rf .cache public`,
+    execArgs,
+    updateProcess(`Cleaning after baseline (rm -rf .cache public)`)
+  );
+
+  // if it builds with v8-serialize
 
   await pExec(
     `yarn add gatsby@v8-serialize`,
     execArgs,
-    `Installing v8-serialize`
+    updateProcess(`Installing v8-serialize`)
   );
 
-  await pExec(`yarn gatsby build`, execArgs, `First v8.serialize build`);
+  await pExec(
+    `yarn gatsby build`,
+    execArgs,
+    updateProcess(`First v8.serialize build`)
+  );
 
   // check if it rebuilds
-  // console.log(execArgs);
-  await pExec(`yarn gatsby build`, execArgs, `Second v8.serialize build`);
-
-  // const proc = childProcess.spawn(`yarn`, [`gatsby`, `develop`, `-p`, `8100`], {
-  //   cwd: execArgs.cwd
-  // });
-
-  // proc.stdout.on(`data`, data => {
-  //   log(data.toString());
-  // });
-
-  // proc.stderr.on(`data`, data => {
-  //   log(data.toString());
-  // });
-
-  // proc.on(`close`, code => {
-
-  // })
-
-  // await pExec(`yarn gatsby develop -p 8100`, execArgs);
+  await pExec(
+    `yarn gatsby build`,
+    execArgs,
+    updateProcess(`Second v8.serialize build`)
+  );
 };

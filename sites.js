@@ -1,8 +1,8 @@
-[
+module.exports = [
   "https://github.com/reactjs/reactjs.org",
   "https://github.com/hackclub/site",
   "https://github.com/peduarte/dona-rita-website",
-  "https://github.com/phacks/theatres-parisiens",
+  // "https://github.com/phacks/theatres-parisiens",
   "https://github.com/calpa/blog",
   "https://github.com/darrenbritton/darrenbritton.github.io",
   "https://github.com/Dave-Lindberg/dl-gatsby",
@@ -48,10 +48,10 @@
   "https://github.com/michalczaplinski/michalczaplinski.github.io",
   "https://github.com/josefaidt/josefaidt.github.io",
   "https://github.com/joshglazer/spotyou",
-  "https://github.com/hesamkaveh/sansi",
+  // "https://github.com/hesamkaveh/sansi",
   "https://github.com/cadejscroggins/oern.tv",
   "https://github.com/JCofman/jc-website",
   "https://github.com/sadnessOjisan/re-geo-lp",
-  "https://github.com/lcestou/luiscestou.com",
-  "https://github.com/abeaclark/weareclarks"
-]
+  "https://github.com/lcestou/luiscestou.com"
+  // "https://github.com/abeaclark/weareclarks"
+];

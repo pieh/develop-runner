@@ -1,2 +1,4 @@
+/node_modules
+/sites
+!/sites/.gitkeep
 node_modules
-sites
