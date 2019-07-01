@@ -5,6 +5,7 @@ const { log } = require(`./logs`);
 const { pExec } = require(`./utils`);
 const fs = require(`fs-extra`);
 const childProcess = require("child_process");
+const del = require(`del`)
 
 const sites = require(`./sites`);
 
@@ -55,7 +56,7 @@ const q = new Queue(
 
       try {
         await fs.outputFile(statusPath, JSON.stringify(report[task.repo]));
-      } catch (e) {}
+      } catch (e) { }
 
       cb(null);
     } catch (e) {
@@ -68,7 +69,7 @@ const q = new Queue(
       };
       try {
         await fs.outputFile(statusPath, JSON.stringify(report[task.repo]));
-      } catch (e) {}
+      } catch (e) { }
       cb(null);
     }
   },
@@ -77,7 +78,7 @@ const q = new Queue(
 
 exports.queue = q;
 
-q.on("drain", function() {
+q.on("drain", function () {
   log("all items have been processed");
 });
 
@@ -144,34 +145,33 @@ const runSite = async task => {
     updateProcess(`Cleaning after baseline (git clean -xfd)`)
   );
 
-  await pExec(
-    `rm -rf .cache public`,
-    execArgs,
-    updateProcess(`Cleaning after baseline (rm -rf .cache public)`)
+  await del(['./cache/*', 'public/*'],
+    { cwd: execArgs },
   );
+  updateProcess(`Cleaning after baseline (rm -rf .cache public)`)
 
-  // if it builds with v8-serialize
+  // if it builds with babel-deps
+
+  // await measureTime(`Build from canary`, () =>
+  await pExec(
+    `yarn add gatsby@babel-deps`,
+    execArgs,
+    updateProcess(`Installing babel-deps`)
+  )
+  // );
 
   await measureTime(`Build from canary`, () =>
     pExec(
-      `yarn add gatsby@v8-serialize`,
-      execArgs,
-      updateProcess(`Installing v8-serialize`)
-    )
-  );
-
-  await measureTime(`Re-Build from canary`, () =>
-    pExec(
       `yarn gatsby build`,
       execArgs,
-      updateProcess(`First v8.serialize build`)
+      updateProcess(`First babel-deps build`)
     )
   );
 
   // check if it rebuilds
-  await pExec(
-    `yarn gatsby build`,
-    execArgs,
-    updateProcess(`Second v8.serialize build`)
-  );
+  // await pExec(
+  //   `yarn gatsby build`,
+  //   execArgs,
+  //   updateProcess(`Second babel-deps build`)
+  // );
 };
