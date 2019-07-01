@@ -47,7 +47,7 @@ const q = new Queue(
       report[task.repo] = {
         status: `STARTED`
       };
-      await runSite(task.repo);
+      await runSite(task);
       console.log("finished", task);
       report[task.repo] = {
         status: `OK`
@@ -89,7 +89,8 @@ exports.run = async () => {
   });
 };
 
-const runSite = async repo => {
+const runSite = async task => {
+  const repo = task.repo;
   const execArgs = {
     stdio: `inherit`,
     cwd: path.join(process.cwd(), `sites`)
@@ -99,8 +100,16 @@ const runSite = async repo => {
   const repoAbsPath = getAbsPathForRepo(repo);
 
   const updateProcess = step => {
-    report[repo] = { status: step };
+    report[repo] = { ...report[repo], status: step };
     return step;
+  };
+
+  const measureTime = async (label, cb) => {
+    const start = new Date();
+    await cb();
+    const timeSpan = new Date() - start;
+    // time in seconds
+    report[repo][label] = timeSpan / 1000;
   };
 
   if (!fs.existsSync(repoAbsPath)) {
@@ -125,7 +134,9 @@ const runSite = async repo => {
 
   await pExec(`yarn`, execArgs, updateProcess(`Installing base deps`));
 
-  await pExec(`yarn gatsby build`, execArgs, updateProcess(`Baseline build`));
+  await measureTime(`Baseline build`, () =>
+    pExec(`yarn gatsby build`, execArgs, updateProcess(`Baseline build`))
+  );
 
   await pExec(
     `git clean -xfd`,
@@ -141,16 +152,20 @@ const runSite = async repo => {
 
   // if it builds with v8-serialize
 
-  await pExec(
-    `yarn add gatsby@v8-serialize`,
-    execArgs,
-    updateProcess(`Installing v8-serialize`)
+  await measureTime(`Build from canary`, () =>
+    pExec(
+      `yarn add gatsby@v8-serialize`,
+      execArgs,
+      updateProcess(`Installing v8-serialize`)
+    )
   );
 
-  await pExec(
-    `yarn gatsby build`,
-    execArgs,
-    updateProcess(`First v8.serialize build`)
+  await measureTime(`Re-Build from canary`, () =>
+    pExec(
+      `yarn gatsby build`,
+      execArgs,
+      updateProcess(`First v8.serialize build`)
+    )
   );
 
   // check if it rebuilds
