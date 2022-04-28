@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "async": "^2.6.2",
+    "async": "^2.6.4",
     "better-queue": "^3.8.10",
     "express": "^4.16.4",
     "fs-extra": "^7.0.1"
